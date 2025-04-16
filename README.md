@@ -93,7 +93,7 @@
 
 ## 👨‍💻 Autor
 
-Desenvolvido por [**Hiidoko**](https://github.com/Hiidoko) 🧪
+Desenvolvido por [**Hiidoko**](https://www.linkedin.com/in/hiidoko/)
 
 ---
 

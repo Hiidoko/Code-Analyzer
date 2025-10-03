@@ -1,0 +1,26 @@
+{
+  "name": "code-analyzer",
+  "version": "1.0.0",
+  "description": "Aplicação full-stack para análise de código fonte em Python, JavaScript, HTML e CSS. O novo projeto é composto por um backend em Node.js + Express (TypeScript) e um frontend em React + Vite (TypeScript), oferecendo relatórios em PDF/HTML e uma interface moderna para inspeção dos resultados.",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently -n BACKEND,FRONTEND -c magenta,cyan \"npm:dev:back\" \"npm:dev:front\"",
+    "dev:back": "npm --prefix backend run dev",
+    "dev:front": "npm --prefix frontend run dev",
+    "test": "echo \"No root tests\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Hiidoko/Code-Analyzer.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Hiidoko/Code-Analyzer/issues"
+  },
+  "homepage": "https://github.com/Hiidoko/Code-Analyzer#readme",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

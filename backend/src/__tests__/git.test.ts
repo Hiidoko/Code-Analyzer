@@ -9,8 +9,8 @@ jest.mock('simple-git', () => () => ({ clone: jest.fn().mockResolvedValue(undefi
 let authToken: string;
 beforeAll(async () => {
   const email = `test_${Date.now()}@example.com`;
-  await request(app).post('/api/auth/register').send({ email, password: 'pw123' });
-  const login = await request(app).post('/api/auth/login').send({ email, password: 'pw123' });
+  await request(app).post('/api/auth/register').send({ email, password: 'pw123456' });
+  const login = await request(app).post('/api/auth/login').send({ email, password: 'pw123456' });
   authToken = login.body.token;
 });
 

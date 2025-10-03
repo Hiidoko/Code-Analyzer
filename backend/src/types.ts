@@ -137,11 +137,24 @@ export interface AnalysisHistoryEntry<T = unknown> {
   result: T;
 }
 
+export type MetricsPeriod = "7d" | "30d" | "90d" | "all";
+
+export interface MetricsFilters {
+  period?: MetricsPeriod;
+  fileType?: FileType;
+}
+
 export interface MetricsOverview {
   totalAnalyses: number;
   byLanguage: Record<FileType, number>;
   avgIssues: number;
   lastAnalyses: Array<{ id: string; fileType: FileType; issues: number; createdAt: string }>;
+  trend: Array<{ date: string; analyses: number; avgIssues: number }>;
+  filters: {
+    period: MetricsPeriod;
+    fileType?: FileType;
+    availableLanguages: FileType[];
+  };
 }
 
 // Git repository aggregated analysis types

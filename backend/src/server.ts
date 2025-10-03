@@ -1,5 +1,7 @@
+import dotenv from "dotenv";
 import cors from "cors";
 import express, { Request, Response, NextFunction } from "express";
+import rateLimit from "express-rate-limit";
 import { analyzeByType } from "./analyzers";
 import { runEslintOnCode } from "./utils/eslintRunner";
 import { analyzeGitRepository, analyzeGitRepositoryWithProgress } from "./utils/gitAnalyzer";
@@ -15,9 +17,8 @@ import {
   CssAnalysis,
   JavaScriptAnalysis,
   GenericAnalysis,
-  GenericAnalysis as AnyAnalysis,
   User,
-  AnalysisHistoryEntry,
+  MetricsFilters,
 } from "./types";
 import jwt from "jsonwebtoken";
 import {
@@ -30,33 +31,85 @@ import {
   buildMetrics,
   cloneSummary,
   ensureDemoUser,
+  ensureDefaultAdmin,
 } from "./store";
 import * as crypto from "crypto";
 
+dotenv.config();
+
 const PORT = Number(process.env.PORT ?? 4000);
-const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(16).toString("hex");
+if (!process.env.JWT_SECRET) {
+  console.warn("[security] JWT_SECRET não definido; gerando um segredo temporário. Configure JWT_SECRET para sessões persistentes.");
+}
+const JWT_SECRET = process.env.JWT_SECRET ?? crypto.randomBytes(32).toString("hex");
+
+const apiLimiter = rateLimit({
+  windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS ?? 60_000),
+  max: Number(process.env.RATE_LIMIT_MAX ?? 120),
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.path.startsWith("/git/analyze/stream") || req.path === "/health",
+});
+
+const authLimiter = rateLimit({
+  windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS ?? 60_000),
+  max: Number(process.env.RATE_LIMIT_AUTH_MAX ?? 20),
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 export const app = express();
 app.use(cors());
 app.use(express.json({ limit: "2mb" }));
+app.use("/api/auth", authLimiter);
+app.use("/api", apiLimiter);
+
+void (async () => {
+  try {
+    if (!process.env.DISABLE_DEFAULT_ADMIN) {
+      await ensureDefaultAdmin();
+    }
+    if (!process.env.DISABLE_DEFAULT_DEMO) {
+      await ensureDemoUser();
+    }
+  } catch (err) {
+    console.error("Falha ao preparar usuários padrão", err);
+  }
+})();
 
 interface AuthedRequest extends Request {
   user?: User;
 }
 
-function authMiddleware(req: AuthedRequest, res: Response, next: NextFunction) {
+async function authenticateRequest(req: Request, options?: { allowQueryToken?: boolean }): Promise<User | null> {
   const header = req.headers.authorization;
-  if (!header) return res.status(401).json({ error: "Não autenticado" });
-  const token = header.replace(/^Bearer\s+/i, "");
+  let token: string | undefined;
+  if (header?.startsWith("Bearer ")) {
+    token = header.replace(/^Bearer\s+/i, "").trim();
+  }
+  if (!token && options?.allowQueryToken) {
+    const queryToken = req.query.token;
+    if (typeof queryToken === "string") {
+      token = queryToken;
+    }
+  }
+  if (!token) return null;
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as { sub: string };
-    const user = getUser(decoded.sub);
-    if (!user) return res.status(401).json({ error: "Token inválido" });
-    req.user = user;
-    next();
+    const user = await getUser(decoded.sub);
+    return user;
   } catch (err) {
-    return res.status(401).json({ error: "Token inválido" });
+    return null;
   }
+}
+
+async function authMiddleware(req: AuthedRequest, res: Response, next: NextFunction) {
+  const user = await authenticateRequest(req);
+  if (!user) {
+    return res.status(401).json({ error: "Não autenticado" });
+  }
+  req.user = user;
+  return next();
 }
 
 function isSupportedFileType(value: unknown): value is FileType {
@@ -64,30 +117,42 @@ function isSupportedFileType(value: unknown): value is FileType {
 }
 
 // Auth endpoints
-app.post("/api/auth/register", (req: Request, res: Response) => {
+app.post("/api/auth/register", async (req: Request, res: Response) => {
   const { email, password } = req.body || {};
-  if (!email || !password) return res.status(400).json({ error: "Dados inválidos" });
+  if (typeof email !== "string" || typeof password !== "string") {
+    return res.status(400).json({ error: "Dados inválidos" });
+  }
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normalizedEmail)) {
+    return res.status(400).json({ error: "E-mail inválido" });
+  }
+  if (password.length < 8) {
+    return res.status(400).json({ error: "Senha deve possuir ao menos 8 caracteres" });
+  }
   try {
-    const user = createUser(email, password);
+    const user = await createUser(normalizedEmail, password);
     return res.json({ id: user.id, email: user.email, role: user.role });
   } catch (err: any) {
-    return res.status(400).json({ error: err.message });
+    return res.status(400).json({ error: err.message ?? "Falha ao registrar" });
   }
 });
 
-app.post("/api/auth/login", (req: Request, res: Response) => {
+app.post("/api/auth/login", async (req: Request, res: Response) => {
   const { email, password } = req.body || {};
-  if (!email || !password) return res.status(400).json({ error: "Dados inválidos" });
-  const user = authenticate(email, password);
+  if (typeof email !== "string" || typeof password !== "string") {
+    return res.status(400).json({ error: "Dados inválidos" });
+  }
+  const normalizedEmail = email.trim().toLowerCase();
+  const user = await authenticate(normalizedEmail, password);
   if (!user) return res.status(401).json({ error: "Credenciais inválidas" });
   const token = jwt.sign({ sub: user.id, role: user.role }, JWT_SECRET, { expiresIn: "12h" });
   return res.json({ token, user: { id: user.id, email: user.email, role: user.role } });
 });
 
 // Login direto da demo (garante criação do usuário demo)
-app.post("/api/auth/demo", (req: Request, res: Response) => {
+app.post("/api/auth/demo", async (_req: Request, res: Response) => {
   try {
-    const user = ensureDemoUser();
+    const user = await ensureDemoUser();
     const token = jwt.sign({ sub: user.id, role: user.role }, JWT_SECRET, { expiresIn: "12h" });
     return res.json({ token, user: { id: user.id, email: user.email, role: user.role } });
   } catch (err: any) {
@@ -134,7 +199,7 @@ app.post("/api/analyze", authMiddleware, async (req: AuthedRequest, res: Respons
     };
 
     if (req.user) {
-      saveAnalysis({
+      await saveAnalysis({
         userId: req.user.id,
         fileType: analysis.fileType,
         fileName: payload.fileName,
@@ -191,6 +256,34 @@ app.post("/api/report/pdf", authMiddleware, async (req: AuthedRequest, res: Resp
 });
 
 app.post("/api/report/html", authMiddleware, (req: AuthedRequest, res: Response) => {
+  const { code, fileType, fileName } = req.body as Partial<AnalyzePayload> & { fileName?: string };
+
+  if (!code || typeof code !== "string") {
+    return res.status(400).json({ error: "Código inválido." });
+  }
+
+  if (!isSupportedFileType(fileType)) {
+    return res.status(400).json({ error: "Tipo de arquivo não suportado." });
+  }
+
+  try {
+    const { summary } = buildSummary(fileType, code);
+    const html = createHtmlReport({
+      fileType,
+      summary,
+      fileName,
+    });
+
+    const safeName = (fileName ?? `relatorio-${fileType}`).replace(/[^a-zA-Z0-9-_\.]/g, "_");
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${safeName}.html"`);
+    return res.send(html);
+  } catch (error) {
+    console.error("Erro ao gerar relatório HTML", error);
+    return res.status(500).json({ error: "Erro ao gerar o relatório em HTML." });
+  }
+});
+
 // Exportações adicionais (CSV, JSON)
 app.post("/api/report/json", authMiddleware, (req: AuthedRequest, res: Response) => {
   const { code, fileType, fileName } = req.body as Partial<AnalyzePayload> & { fileName?: string };
@@ -247,26 +340,36 @@ app.post("/api/report/csv", authMiddleware, (req: AuthedRequest, res: Response) 
 });
 
 // Histórico
-app.get("/api/history", authMiddleware, (req: AuthedRequest, res: Response) => {
-  const list = listUserAnalyses(req.user!.id).map((a) => ({
+app.get("/api/history", authMiddleware, async (req: AuthedRequest, res: Response) => {
+  const list = await listUserAnalyses(req.user!.id);
+  const mapped = list.map((a) => ({
     id: a.id,
     fileType: a.fileType,
     fileName: a.fileName,
     createdAt: a.createdAt,
     issues: a.summary.issuesCount,
   }));
-  return res.json({ items: list });
+  return res.json({ items: mapped });
 });
 
-app.get("/api/history/:id", authMiddleware, (req: AuthedRequest, res: Response) => {
-  const item = getAnalysis(req.params.id, req.user!.id);
+app.get("/api/history/:id", authMiddleware, async (req: AuthedRequest, res: Response) => {
+  const item = await getAnalysis(req.params.id, req.user!.id);
   if (!item) return res.status(404).json({ error: "Não encontrado" });
   return res.json(item);
 });
 
 // Métricas (dashboard)
-app.get("/api/metrics", authMiddleware, (req: AuthedRequest, res: Response) => {
-  const metrics = buildMetrics(req.user!.id);
+app.get("/api/metrics", authMiddleware, async (req: AuthedRequest, res: Response) => {
+  const filters: MetricsFilters = {};
+  const period = req.query.period;
+  if (typeof period === "string" && ["7d", "30d", "90d", "all"].includes(period)) {
+    filters.period = period as MetricsFilters["period"];
+  }
+  const fileType = req.query.fileType;
+  if (typeof fileType === "string" && ["py", "js", "html", "css", "rb", "php", "go"].includes(fileType)) {
+    filters.fileType = fileType as FileType;
+  }
+  const metrics = await buildMetrics(req.user!.id, filters);
   return res.json(metrics);
 });
 
@@ -287,7 +390,13 @@ app.post("/api/git/analyze", authMiddleware, async (req: AuthedRequest, res: Res
 
 // Streaming (SSE) GET /api/git/analyze/stream?repoUrl=...&branch=...&reqId=...
 const activeGitCancels = new Map<string, { cancel: () => void }>();
-app.get("/api/git/analyze/stream", authMiddleware, async (req: AuthedRequest, res: Response) => {
+app.get("/api/git/analyze/stream", async (req: Request, res: Response) => {
+  const user = await authenticateRequest(req, { allowQueryToken: true });
+  if (!user) {
+    return res.status(401).json({ error: "Não autenticado" });
+  }
+  (req as AuthedRequest).user = user;
+
   const repoUrl = req.query.repoUrl as string | undefined;
   const branch = req.query.branch as string | undefined;
   const reqId = (req.query.reqId as string | undefined) || crypto.randomUUID();
@@ -303,6 +412,9 @@ app.get("/api/git/analyze/stream", authMiddleware, async (req: AuthedRequest, re
     res.write(`data: ${JSON.stringify(data)}\n\n`);
   };
   send('meta', { reqId });
+  req.on('close', () => {
+    cancelled = true;
+  });
   try {
     const report = await analyzeGitRepositoryWithProgress(
       repoUrl,
@@ -331,33 +443,6 @@ app.post("/api/git/analyze/cancel", authMiddleware, (req: AuthedRequest, res: Re
   if (!entry) return res.status(404).json({ error: 'Processo não encontrado' });
   entry.cancel();
   return res.json({ ok: true });
-});
-  const { code, fileType, fileName } = req.body as Partial<AnalyzePayload> & { fileName?: string };
-
-  if (!code || typeof code !== "string") {
-    return res.status(400).json({ error: "Código inválido." });
-  }
-
-  if (!isSupportedFileType(fileType)) {
-    return res.status(400).json({ error: "Tipo de arquivo não suportado." });
-  }
-
-  try {
-    const { summary } = buildSummary(fileType, code);
-    const html = createHtmlReport({
-      fileType,
-      summary,
-      fileName,
-    });
-
-    const safeName = (fileName ?? `relatorio-${fileType}`).replace(/[^a-zA-Z0-9-_\.]/g, "_");
-    res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename="${safeName}.html"`);
-    return res.send(html);
-  } catch (error) {
-    console.error("Erro ao gerar relatório HTML", error);
-    return res.status(500).json({ error: "Erro ao gerar o relatório em HTML." });
-  }
 });
 
 app.get("/health", (_req: Request, res: Response) => {

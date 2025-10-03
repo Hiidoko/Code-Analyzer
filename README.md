@@ -4,291 +4,290 @@
   <img src="https://img.shields.io/badge/Express-4-black?logo=express&logoColor=white" alt="Express" />
   <img src="https://img.shields.io/badge/React-18-149ECA?logo=react&logoColor=white" alt="React" />
   <img src="https://img.shields.io/badge/Vite-5-646CFF?logo=vite&logoColor=white" alt="Vite" />
-  <img src="https://img.shields.io/badge/PDFKit-reporting-orange" alt="PDFKit" />
+  <img src="https://img.shields.io/badge/Prisma-ORM-0C344B?logo=prisma&logoColor=white" alt="Prisma" />
+  <img src="https://img.shields.io/badge/SQLite-persist%C3%AAncia-003B57?logo=sqlite&logoColor=white" alt="SQLite" />
+  <img src="https://img.shields.io/badge/SSE-real--time-FF6B6B" alt="Server Sent Events" />
 </p>
 
 <h1 align="center">Code Analyzer</h1>
-<p align="center">Plataforma full‑stack para análise multilíngue de código, geração de relatórios e inspeção de qualidade com métricas e histórico.</p>
-<p align="center"><strong>Status:</strong> Preview / v1.0.0 (arquitetura modular em evolução)</p>
+<p align="center">Plataforma full‑stack para análise multilíngue de código, geração de relatórios, histórico persistente e métricas com atualização em tempo real.</p>
+<p align="center"><strong>Status:</strong> Preview • release candidate com fluxo completo autenticado</p>
 
 ---
 
-## ✨ Principais Recursos
+## 📌 Por que este projeto importa?
 
-- 🔐 Autenticação JWT (usuário padrão demo + cadastro) + sessão persistente/temporária
-- 🧠 Análise heurística de múltiplas linguagens: Python, JavaScript, HTML, CSS (+ genéricos Ruby, PHP, Go)
-- 🛡️ Integração com ESLint (execução programática) incorporada ao relatório de JS
-- 📦 Exportação de relatórios: PDF, HTML, CSV e JSON
-- 🧾 Histórico de análises + Métricas agregadas (por linguagem, média de issues, últimas execuções)
-- 🌐 Análise de repositórios Git (clone superficial, filtros, limites, estatísticas por linguagem)
-- 🔄 SSE infra básica (em evolução para streaming de progresso avançado)
-- 🎯 UI moderna com: tema claro/escuro, sidebar recolhível, scrollspy, skeleton loaders
-- 🔒 Regras de força de senha com zxcvbn e bloqueio de cadastro fraco
-- 🧩 Arquitetura preparada para expansão (linters adicionais, DB, chaves de API)
+- 🔐 **Autenticação forte** com JWT, bcrypt, rate limiting e usuários padrão (admin + demo)
+- 🧠 **Análises multi‑linguagem** (Python, JavaScript, HTML, CSS + fallback genérico) com integração ESLint
+- 🗃️ **Persistência durável** via Prisma + SQLite (com migrações e histórico por usuário)
+- 📡 **Streaming SSE** para acompanhar progresso de análise Git e cancelar em tempo real
+- 📊 **Dashboard de métricas** com filtros por período/linguagem e tendências históricas
+- 📦 **Relatórios exportáveis** (PDF, HTML, CSV, JSON) prontos para compartilhar
+- 🧰 **Arquitetura modular**: fácil plugar novos analisadores, formatos e integrações
 
 ---
 
-## 🏗 Arquitetura Geral
+## 🧭 Índice rápido
+
+- [Visão geral da arquitetura](#visão-geral-da-arquitetura)
+- [Estrutura de pastas](#estrutura-de-pastas)
+- [Configuração e execução](#configuração-e-execução)
+- [Fluxo de uso](#fluxo-de-uso)
+- [APIs e integrações](#apis-e-integrações)
+- [Segurança](#segurança)
+- [Scripts e automações](#scripts-e-automações)
+- [Qualidade e testes](#qualidade-e-testes)
+- [Roadmap](#roadmap)
+- [FAQ](#faq)
+- [Contribuindo](#contribuindo)
+
+---
+
+## 🏗️ Visão geral da arquitetura
 
 | Camada | Stack | Destaques |
 |--------|-------|-----------|
-| Frontend | React + Vite + TS | SPA modular, tema dinâmico, componentes desacoplados, design system leve (CSS custom) |
-| Backend | Node.js + Express + TS | Endpoints REST, geração de relatórios, análise + lint, git analyzer, JWT auth |
-| Relatórios | PDFKit + HTML templates | Layout sumarizado (seções, severidade, métricas) |
-| Lint | ESLint API | Execução isolada por arquivo e incorporação no sumário |
-| Git | simple-git + filtros FS | Clone superficial, filtros de extensão, estatísticas agregadas |
-| Segurança | JWT, heurísticas de senha | Gating de cadastro por força mínima (zxcvbn) |
+| Frontend | React 18 + Vite + TypeScript | SPA modular, tema dinâmico, streaming SSE via EventSource, UX responsiva |
+| Backend | Node.js 18 + Express + TypeScript | APIs REST, SSE, geração de relatórios, autenticação, rate limiting |
+| Persistência | Prisma ORM + SQLite | Migrações versionadas, histórico de análises, usuários e métricas |
+| Analisadores | Heurísticas custom + ESLint | Estratégia por linguagem, enriquecimento de sumário, fácil extensão |
+| Relatórios | PDFKit + templates HTML/CSV/JSON | Exportáveis diretamente das rotas /api/report/* |
+
+> O backend inicializa usuários padrão (`admin@example.com` / senha configurável e `user@email.com` / `user`) para agilizar testes.
 
 ---
 
-## 📂 Estrutura de Pastas Simplificada
+## 📁 Estrutura de pastas
 
 ```
-backend/
-  src/
-    analyzers/          # Analisadores por linguagem + genérico
-    report/              # Geradores de PDF / HTML / CSV / JSON wrappers
-    utils/               # Eslint runner, git analyzer, summary builder
-    types.ts             # Tipagens centrais backend
-    server.ts            # Setup Express, rotas e middlewares
-frontend/
-  src/
-    components/          # Painéis (Auth, Git, Métricas, Histórico, Resultado)
-    App.tsx              # Shell principal + tema + navegação + modal
-    styles.css           # Design system e temas
-    types.ts             # Tipos compartilhados para consumo da API
+Code-Analyzer/
+├─ backend/
+│  ├─ prisma/          # schema.prisma, migrações, banco SQLite (dev/test)
+│  ├─ src/
+│  │  ├─ analyzers/    # Heurísticas por linguagem
+│  │  ├─ report/       # Geradores PDF/HTML/CSV/JSON
+│  │  ├─ utils/        # Git analyzer, ESLint runner, summary builder
+│  │  ├─ server.ts     # Rotas HTTP + SSE + middlewares
+│  │  └─ store.ts      # Camada de persistência Prisma
+│  └─ ...              # configs (tsconfig, jest, .env.example)
+├─ frontend/
+│  └─ src/
+│     ├─ components/   # Painéis (Auth, Git, Métricas, Histórico, Resultado)
+│     ├─ api.ts        # Axios com injeção de token
+│     ├─ App.tsx       # Shell e roteamento interno
+│     └─ styles.css    # Tema claro/escuro e layout
+└─ package.json        # Scripts combinados com concurrently
 ```
 
 ---
 
-## 🚀 Início Rápido
+## ⚙️ Configuração e execução
 
-### Requisitos
-| Ferramenta | Versão Recomendada |
+### Pré-requisitos
+
+| Ferramenta | Versão recomendada |
 |------------|--------------------|
-| Node.js    | 18+                |
-| npm        | 9+                 |
+| Node.js    | 18 ou superior     |
+| npm        | 9 ou superior      |
 
-### Ambiente de Desenvolvimento (monorepo simplificado)
+### Passo a passo inicial
 
 ```powershell
 git clone https://github.com/Hiidoko/Code-Analyzer.git
 cd Code-Analyzer
+
+# Instale dependências separadamente
 npm install --prefix backend
 npm install --prefix frontend
+
+# Copie as variáveis de ambiente e ajuste conforme necessário
+Copy-Item backend/.env.example backend/.env
+
+# Opcional: gere cliente Prisma (útil para IDEs)
+npm --prefix backend run prisma:generate
+
+# Aplique as migrações SQLite (gera dev.db se não existir)
+npm --prefix backend run prisma:migrate
+
+# Inicie frontend + backend em paralelo
 npm run dev
 ```
 
-Scripts combinados: `npm run dev` (root) levanta backend (porta 4000) e frontend (porta 5173) simultaneamente via concurrently.
+> O comando `npm run dev` inicia o backend em <http://localhost:4000> e o frontend em <http://localhost:5173>. Ambos usam proxy `/api` para comunicação.
 
-### Executar Backend isolado
+### Execução isolada
+
+- **Backend**
+  ```powershell
+  cd backend
+  npm run dev
+  ```
+- **Frontend**
+  ```powershell
+  cd frontend
+  npm run dev
+  ```
+
+### Build de produção
+
 ```powershell
 cd backend
-npm install
-npm run dev
+npm run build
+
+cd ../frontend
+npm run build
 ```
 
-### Executar Frontend isolado
-```powershell
-cd frontend
-npm install
-npm run dev
-```
+Os artefatos ficam em `backend/dist` e `frontend/dist`. Sirva o frontend com `npm --prefix frontend run preview` ou integre ao backend conforme necessidade.
 
-### Build Produção
-```powershell
-cd backend && npm run build
-cd ../frontend && npm run build
-```
+### Variáveis de ambiente relevantes (`backend/.env`)
 
----
+| Variável | Descrição | Default |
+|----------|-----------|---------|
+| `DATABASE_URL` | Caminho do banco SQLite (suporta `file:./dev.db`) | `file:./dev.db` |
+| `JWT_SECRET` | Segredo para assinar tokens | gerado aleatoriamente se vazio (não persistente) |
+| `BCRYPT_ROUNDS` | Custo de hashing | `12` |
+| `PORT` | Porta do backend | `4000` |
+| `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX`, `RATE_LIMIT_AUTH_MAX` | Ajustes de rate limiting | `60s / 120 / 20` |
+| `DEFAULT_ADMIN_PASSWORD` | Senha do admin padrão | `admin` |
+| `DISABLE_DEFAULT_ADMIN`, `DISABLE_DEFAULT_DEMO` | Evita criação automática | não definidos |
 
-## 🔐 Autenticação
-Fluxo simples com registro e login JWT. Tokens podem ser armazenados em localStorage (persistente) ou sessionStorage (sessão). Usuário demo disponível via botão “Testar a Demo”, com badge visual e banner informativo.
-
-Campos de senha passam por avaliação zxcvbn; cadastro é bloqueado se força < nível “Razoável”.
+Para redefinir o banco durante o desenvolvimento utilize `npx prisma migrate reset` (atenção: remove dados).
 
 ---
 
-## 🧪 Análise de Código
-Cada arquivo enviado (upload ou colagem) passa por heurísticas específicas da linguagem:
+## 🚦 Fluxo de uso
 
-| Linguagem | Heurísticas / Notas |
-|-----------|---------------------|
-| Python    | Contagem de funções, classes, complexidade superficial (heurística) |
-| JavaScript| ESLint (issues), contagem de estruturas, padrões de risco básicos |
-| HTML      | Estrutura, tags repetidas, acessibilidade básica (heurística) |
-| CSS       | Seletores, profundidade e possíveis sobrecargas |
-| Genérico (rb/php/go)| Fallback de contagem de linhas, tokens e densidade |
-
-Resumo estruturado em seções com severidade (`info`, `warning`, `success`) e itens descritivos.
+1. Crie uma conta ou use **Entrar como demo** (gera token JWT).
+2. Escolha entre upload / colagem de código e selecione a linguagem.
+3. Aplique a análise para receber sumário estruturado + detalhes específicos.
+4. Exporte relatórios conforme necessidade (PDF/HTML/CSV/JSON).
+5. Consulte o **Histórico** e o **Dashboard** para métricas agregadas.
+6. (Opcional) Analise um repositório Git: acompanhe o progresso em tempo real via SSE e cancele se desejar.
 
 ---
 
-## 🌐 Análise de Repositório Git
-Endpoint recebe `repoUrl` (e opcional `branch`), clona de forma superficial e processa apenas extensões suportadas. Estatísticas:
+## 🔗 APIs e integrações
 
-- Arquivos analisados / ignorados
-- Issues totais agregadas
-- Distribuição por linguagem (`files`, `issues`)
+| Endpoint | Método | Descrição |
+|----------|--------|-----------|
+| `/api/auth/register` | POST | Cadastro de usuário com verificação de senha forte |
+| `/api/auth/login` | POST | Login com retorno de token JWT |
+| `/api/auth/demo` | POST | Cria/retorna sessão demo | 
+| `/api/analyze` | POST | Analisa código (py/js/html/css/rb/php/go) e persiste histórico |
+| `/api/report/(pdf|html|csv|json)` | POST | Exporta relatório conforme formato |
+| `/api/history`, `/api/history/:id` | GET | Histórico de análises do usuário |
+| `/api/metrics` | GET | Métricas com filtros `period` (7d/30d/90d/all) e `fileType` |
+| `/api/git/analyze` | POST | Análise síncrona de repositório Git |
+| `/api/git/analyze/stream` | GET (SSE) | Streaming de progresso com eventos `meta`, `progress`, `done`, `cancelled`, `error` |
+| `/api/git/analyze/cancel` | POST | Cancela execução SSE ativa (usa `reqId`) |
 
-A arquitetura já contempla callback de progresso (infra para SSE / streaming). Limites protegem contra repositórios muito extensos.
+### Streaming SSE (frontend)
 
----
-
-## 📊 Histórico & Métricas
-Armazenamento in-memory (preview) registra análises para compor:
-
-- Total de análises
-- Média de issues
-- Últimas análises (timestamp + linguagem + contagem)
-- Agrupamento por linguagem
-
-Rota `/api/history` para listagem e `/api/history/:id` para detalhamento individual.
-
----
-
-## 📝 Relatórios
-| Formato | Uso / Características |
-|---------|-----------------------|
-| PDF     | Sumário formatado com títulos e listagens legíveis (PDFKit) |
-| HTML    | Estrutura leve para visualização direta em navegador |
-| CSV     | Export das linhas principais / issues sintetizadas |
-| JSON    | Objeto completo retornado pela análise |
-
-Downloads acionados diretamente pelo frontend após POST para `/api/report/{formato}`.
+- Autenticação por query `token` (JWT) + fallback para header `Authorization`.
+- Eventos interpretados pelo `GitPanel.tsx`, com mensagens de progresso, cancelamento e erros.
+- Cancelamento envia `POST /api/git/analyze/cancel` com o `reqId` recebido em `event: meta`.
 
 ---
 
-## 🧰 Scripts Importantes
+## 🛡️ Segurança
 
-### Root
+- Tokens JWT expiram em 12h e são armazenados em `localStorage` ou `sessionStorage` conforme preferência.
+- Login demo é isolado do admin e reforça ambiente de testes.
+- Rate limiting segmentado (`/api` geral vs `/api/auth`).
+- Hash de senha com bcrypt (configurável via `BCRYPT_ROUNDS`).
+- Rotas protegidas usam middleware que revalida token e usuário no banco.
+- SSE requer autenticação (token em query string) e suporta cancelamento manual/automático.
+
+---
+
+## 🧰 Scripts e automações
+
+### Monorepo (raiz)
+
 | Script | Descrição |
 |--------|-----------|
-| `npm run dev` | Sobe backend + frontend em paralelo |
+| `npm run dev` | Sobe backend (4000) + frontend (5173) em paralelo |
 
 ### Backend
+
 | Script | Descrição |
 |--------|-----------|
-| `npm run dev` | Watch com `tsx` |
-| `npm run build` | Compila TypeScript para `dist/` |
-| `npm start` | Inicia build compilada |
-| `npm run lint` | Executa ESLint |
-| `npm test` | Jest (placeholder inicial) |
+| `npm run dev` | Watch mode via `tsx` |
+| `npm run build` | Compila TS para `dist/` |
+| `npm start` | Executa build gerada |
+| `npm run lint` | ESLint em `src/` |
+| `npm run prisma:generate` | Gera cliente Prisma |
+| `npm run prisma:migrate` | Aplica migrações (`prisma migrate deploy`) |
+| `npm test` | Executa Jest (aplica migrações em `test.db` automaticamente) |
 
 ### Frontend
+
 | Script | Descrição |
 |--------|-----------|
 | `npm run dev` | Vite dev server |
 | `npm run build` | Build de produção |
-| `npm run preview` | Servir build gerada |
+| `npm run preview` | Serve build com Vite |
 
 ---
 
-## 🔄 Fluxo Resumido (Exemplo de Uso)
-1. Autentique-se (ou use a Demo)  
-2. Cole ou selecione um arquivo de código  
-3. Selecione a linguagem (detecção automática tenta inferir pela extensão)  
-4. Clique em “Analisar”  
-5. Visualize resumo por seções + (opcional) JSON bruto  
-6. Exporte em PDF / HTML / CSV / JSON conforme necessidade  
-7. Consulte histórico e métricas agregadas  
-8. (Opcional) Forneça URL de repositório Git para análise em lote  
+## ✅ Qualidade e testes
 
----
+- Jest configurado com `ts-jest` e `supertest` para cobrir rotas críticas (backend).
+- ESLint programático roda dentro da análise JavaScript, garantindo relatórios ricos.
+- Build do frontend validado com Vite (`npm --prefix frontend run build`).
+- Métricas agregadas validadas via `buildMetrics` (inclui filtros e tendência diária).
 
-## 🧱 Design & UX
-- Tema claro/escuro com transições suaves
-- Sidebar com scrollspy e ícones SVG inline
-- Skeleton loaders (quick stats, histórico, métricas, cards de resultado)
-- Modal “Sobre” com grid de seções
-- Password strength feedback + requisitos dinâmicos
+### Como executar
 
----
-
-## 🔮 Roadmap Futuro (Planejado)
-- Persistência em banco (PostgreSQL / SQLite / Prisma)
-- Cache de repositórios Git e diff incremental
-- Linter Python (flake8 / pylint) e segurança (bandit)
-- Streaming granular (SSE) de progresso por arquivo
-- Geração de token de API e automação CI usage
-- Painel de vulnerabilidades / hotspots de complexidade
-
----
-
-## 📦 Dependências Principais
-| Área | Libs |
-|------|------|
-| Backend | express, cors, jsonwebtoken, pdfkit, simple-git |
-| Lint | eslint (programático) |
-| Frontend | react, react-dom, axios, zxcvbn |
-| Tooling | typescript, ts-jest, tsx, concurrently |
-
----
-
-## 🔒 Segurança (Atual / Próxima Fase)
-| Item | Status |
-|------|--------|
-| JWT Auth | Implementado |
-| Password Strength (zxcvbn) | Implementado (gating) |
-| Rate limiting | Pendente |
-| Brute force mitigations | Pendente |
-| Hardening headers (helmet) | Pendente |
-
----
-
-## ✅ Qualidade & Testes
-Testes iniciais configurados (Jest + ts-jest + supertest). Cobertura ainda mínima — foco futuro em:
-- Integração Git analyzer (mock fs / shallow clone fake)
-- Casos de erro e limites (tamanho / extensão / timeout)
-- Teste de lint (ESLint) comparando contagens esperadas
-
-Para executar:
 ```powershell
-cd backend
-npm test
+npm --prefix backend run lint
+npm --prefix backend run test
+npm --prefix frontend run build
 ```
 
+Os testes criam um banco `test.db` isolado. Após a execução, o Prisma é desligado automaticamente.
+
 ---
 
-## 🐞 Troubleshooting Rápido
-| Problema | Causa Comum | Ação |
-|----------|-------------|------|
-| Erro CORS | Backend não iniciado | Verifique porta 4000 ativa |
-| PDF vazio | Código não enviado / erro interno | Inspecione resposta JSON de /analyze |
-| Clone Git lento | Repositório grande | Limitar escopo, confirmar rede, adicionar cache (futuro) |
-| Registro bloqueado | Senha fraca | Aumente diversidade / comprimento |
+## 🛣️ Roadmap
+
+- Integração com bancos externos (PostgreSQL) e seeds configuráveis
+- Linter Python dedicado (flake8/pylint) + checagens de segurança (bandit)
+- Export assíncrono com notificações in-app
+- Webhooks / tokens de API para automação CI
+- Painel avançado com gráficos interativos (D3/Recharts) e alertas de regressão
+- Cache incremental para repositórios Git grandes
+
+---
+
+## 🙋 FAQ
+
+| Pergunta | Resposta |
+|----------|----------|
+| Quais credenciais padrão existem? | `admin@example.com` / senha definida em `DEFAULT_ADMIN_PASSWORD` (padrão `admin`) e demo `user@email.com` / `user`. |
+| Posso trocar o banco? | Sim. Ajuste `DATABASE_URL` (ex. `file:../data.db` ou conexões PostgreSQL) e replique migrações. |
+| Como adicionar uma nova linguagem? | Crie um analisador em `backend/src/analyzers`, exporte no `index.ts` e ajuste o frontend para oferecê-la. |
+| O SSE funciona sem HTTPS? | Sim em dev. Para produção habilite HTTPS e avalie CORS/Firewall. |
+| O frontend pode rodar em outro domínio? | Sim, basta configurar CORS no backend (arquivo `server.ts`) e ajustar `baseURL` do Axios. |
 
 ---
 
 ## 🤝 Contribuindo
-1. Faça um fork
-2. Crie branch de feature (`feat/nome`)
-3. Commits semânticos (ex: `feat: adiciona suporte a ...`)
-4. Abra Pull Request descrevendo motivação + mudanças
 
-Sugestões, issues e PRs são bem-vindos.
+1. Faça um fork.
+2. Crie uma branch (`feat/nome-da-feature`).
+3. Siga commits semânticos (`feat:`, `fix:`, `chore:` ...).
+4. Abra PR descrevendo motivação, passos de teste e screenshots quando aplicável.
+
+Sugestões, issues e PRs são super bem-vindos! ✨
 
 ---
 
 ## 📄 Licença
-Projeto sob licença ISC (padrão do repositório). Avalie requisitos da sua organização antes de uso em produção.
+
+Este projeto é distribuído sob a licença **ISC**. Consulte o arquivo `LICENSE` (ou `package.json`) para detalhes e verifique requisitos internos antes de uso em produção.
 
 ---
 
-## 🙋 FAQ Curto
-| Pergunta | Resposta |
-|----------|----------|
-| Por que in‑memory storage? | Foco em prototipagem rápida; persistência será plugada depois. |
-| Suporta outras linguagens? | Estrutura pronta – basta criar novo analyzer e registrar no índice. |
-| Como adicionar outro formato de relatório? | Criar módulo em `backend/src/report` e expor rota em `server.ts`. |
-| Posso integrar CI? | Sim, chamando as rotas de análise e coletando JSON. Token de API futura facilitará. |
-
----
-
-## 🙌 Agradecimentos
-Inspirado em ferramentas de code quality e linters modernos. Construído para demonstrar boas práticas de modularização, DX e UX progressiva.
-
----
-
-<p align="center">Feito com ♥ para elevar a qualidade e velocidade de análise de código.</p>
+<p align="center">Feito com ♥ para acelerar análises de código e dar visibilidade ao progresso.</p>

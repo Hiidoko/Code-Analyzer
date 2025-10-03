@@ -1,7 +1,69 @@
+### Node & Dependências
 node_modules/
+**/node_modules/
+
+### Builds / Bundles
 dist/
+**/dist/
 build/
+**/build/
+*.tsbuildinfo
+
+### Test / Coverage
 coverage/
-.DS_Store
+**/coverage/
+junit.xml
+
+### Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+### Ambiente / Segredos
 .env
-.env.local
+.env.*
+!.env.example
+
+### SO / Editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+### Banco (SQLite) local
+*.db
+*.db-journal
+backend/prisma/dev.db
+backend/prisma/test.db
+backend/prisma/*.db-journal
+
+### Prisma (gerado)
+backend/node_modules/.prisma/
+
+### Cache / Misc
+.eslintcache
+.cache/
+**/.cache/
+tmp/
+temp/
+*.tmp
+*.swp
+*.swo
+
+### Sistema
+nohup.out
+
+### Relatórios temporários
+*.report.json
+*.coverage-final.json
+
+### PDF/exports gerados manualmente
+exports/
+
+### Evitar ignorar migrações Prisma
+!backend/prisma/migrations/

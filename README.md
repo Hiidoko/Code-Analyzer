@@ -1,268 +1,206 @@
 ## Code Analyzer
 
-> 🌐 Available languages: (PT-BR planned) · **English**
+> Interface única para inspecionar rapidamente código em múltiplas linguagens, analisar repositórios Git em streaming e gerar relatórios exportáveis.
 
-Full-stack TypeScript application that delivers lightweight multi-language code inspection, Git repository streaming analysis, historical metrics, and multi-format reporting.
+**Live demo:** https://code-analyzer-t04x.onrender.com  
+**Screenshot:**
 
-> Prototype / portfolio-style project: heuristic analysis is intentionally simplified and not a replacement for full static analysis suites.
+![Interface](./img/Print.PNG)
 
-## 🔗 Demo & Preview
-- **Live demo:** https://code-analyzer-t04x.onrender.com
-- **Screenshot:**
-
-  ![Code Analyzer Interface](./img/Print.PNG)
+> Projeto em evolução. Heurísticas são simplificadas (não substituem ferramentas como SonarQube, ESLint completo ou Bandit).
 
 ## 🚀 Tech Stack
 - **Frontend:** React 18 + Vite + TypeScript
 - **Backend:** Node.js 18 + Express 4 + TypeScript
-- **Testing:** Jest + Supertest (backend focus)
-- **Reporting:** PDFKit, HTML templating, CSV & JSON serializers
-- **Streaming:** Server-Sent Events (SSE) for Git analysis progress
+- **Persistência:** Prisma (atualmente usando MongoDB via `DATABASE_URL`)
+- **Streaming:** Server-Sent Events (SSE) para progresso de análise Git
+- **Relatórios:** PDFKit + templates HTML/CSV/JSON
+- **Autenticação & Segurança:** JWT, bcrypt, rate limiting básico, CORS configurável
+- **Testes:** Jest + Supertest (foco no backend)
 
-## 🌐 Overview
+## 🌐 Visão Geral
+O usuário pode:
+1. Colar código e obter análise heurística imediata.
+2. Enviar URL de repositório Git e acompanhar progresso em tempo real (SSE).
+3. Salvar histórico autenticado de análises e consultar métricas agregadas.
+4. Exportar resultados em PDF, HTML, CSV ou JSON.
 
-The platform analyzes single code snippets or entire Git repositories, producing summarized sections of findings (issues, suggestions, stats). Authenticated users keep a history, export reports (PDF/HTML/CSV/JSON), and view aggregated metrics filtered by language or time period. Git repository analysis streams live progress and can be cancelled mid‑execution.
+O sistema padroniza resultados em “sections” (id, título, severidade, itens) para reaproveitar entre UI, métricas e exportações.
 
-## ✨ Key Features
+## ✨ Principais Funcionalidades
+- Suporte a: JavaScript, Python, HTML, CSS (+ fallback genérico para Ruby/PHP/Go)
+- Integração ESLint em memória para JavaScript
+- Clonagem rasa + varredura concorrente de repositórios (cancelável)
+- Histórico por usuário + métricas filtradas (período / linguagem)
+- Exportação multi-formato (PDF/HTML/CSV/JSON)
+- Autenticação JWT + usuário demo opcional
+- Arquitetura modular para adicionar novos analisadores
 
-- Multi-language heuristics: JavaScript, Python, HTML, CSS (+ generic fallback for Ruby/PHP/Go)
-- ESLint integration for JS code (in-memory run)
-- Git repository shallow clone + concurrent file scanning + cancellable SSE stream
-- Per-user analysis history with persisted summaries
-- Export in four formats (PDF / HTML / CSV / JSON)
-- Metrics endpoint with period and language filters
-- JWT authentication + bcrypt hashing + rate limiting
-- Modular analyzers layer (drop-in new language strategy)
+## 🧩 Arquitetura
+| Camada | Papel |
+| ------ | ----- |
+| Backend (Express + TS) | Rotas REST, SSE, autenticação, geração de relatórios |
+| Analyzers | Heurísticas por linguagem + enriquecimento de estatísticas |
+| Summary Builder | Converte resultado bruto em sections uniformes |
+| Persistência (Prisma) | Usuários e análises (MongoDB na versão atual) |
+| Frontend (React) | Painéis: Auth, Git, Métricas, Histórico, Resultado |
+| Reporting | PDFKit + serializadores HTML/CSV/JSON |
 
-## 🧩 Architecture
+### Pipeline de Análise
+1. Recebe código + `fileType`.
+2. Executa heurística específica.
+3. (JS) Agrega diagnóstico do ESLint.
+4. Normaliza em sections (issues, estatísticas, dicas).
+5. (Opcional) Persiste e disponibiliza para histórico / métricas.
 
-| Layer | How it works |
-| ----- | ------------ |
-| Backend (Express + TS) | REST API `/api/*`, SSE endpoints for streaming repo analysis, JWT auth, report generation. |
-| Analyzers | Language-specific heuristic modules returning lightweight stats + issue lists. |
-| Summary Builder | Normalizes analyzer outputs into uniform sections (id, severity, items). |
-| Persistence | Prisma (MongoDB provider in current iteration) storing Users and Analyses. |
-| Frontend SPA | React panels (Auth, Git, History, Metrics, Result) consuming API + EventSource. |
-| Reporting | PDFKit + HTML/CSV/JSON generators mapping summary sections. |
+### Streaming de Repositório Git
+- Endpoint SSE: `/api/git/analyze/stream?repoUrl=...&token=...`
+- Eventos: `meta` → múltiplos `progress` → `done` | `cancelled` | `error`
+- Cancelamento via `POST /api/git/analyze/cancel` (com `reqId`).
 
-### 🎨 UI & Tailwind
-
-This project uses React + CSS (no Tailwind). The interface is split into focused panels:
-- Auth / session management
-- Code input + analyzer selection
-- Git analysis panel (repo URL + branch + streaming log)
-- Metrics dashboard (lines, issues, distribution by type)
-- Results / export actions
-
-Lightweight styling keeps dependency surface small; theming can be extended by adding a design token layer.
-
-### 🔐 Unified Validation (Backend + Frontend)
-- The frontend performs basic client-side checks; backend enforces core constraints (auth, size, supported file types).
-- ESLint results merged only for JavaScript paths.
-- A single summary shaping step (sections) keeps report/export formats consistent.
-
-### 💾 Abstracted Persistence (Analysis Store)
-- Prisma client wrapper (`store.ts`) persists analyses and builds aggregate metrics.
-- Swapping databases involves adjusting `schema.prisma` and `DATABASE_URL` (Mongo used now; Postgres/SQLite feasible).
-- Summaries stored in a compact JSON structure for fast retrieval.
-
-### 📊 Observability & Logs
-- Minimal console logging (can be upgraded to pino/winston).
-- SSE stream events act as a real-time timeline (meta, progress, done, cancelled, error).
-- Health endpoint `/health` for uptime probes.
-
-The summary builder normalizes different analyzer outputs into a consistent schema consumed by exports and metrics.
-
-| Frontend Panels | Responsibilities |
-| --------------- | --------------- |
-| AuthPanel | Login / demo session acquisition |
-| GitPanel | Start/monitor/cancel repository analysis (SSE) |
-| HistoryPanel | List prior analyses (id, file, issues) |
-| MetricsDashboard | Aggregated metrics by filter (period/language) |
-| ResultPanel | Display last analysis + export actions |
-
-## 🗂 Folder Structure (summary)
-
+## 🗂 Estrutura (Resumo)
 ```
 backend/
-  prisma/          # schema.prisma (Mongo provider) + dev/test dbs
+  prisma/          # schema.prisma (Mongo) + dbs locais de dev/test
   src/
-    analyzers/     # Language heuristics (js, py, html, css, generic)
-    report/        # PDF / HTML / CSV / JSON generators
+    analyzers/     # Heurísticas por linguagem
+    report/        # Geração de PDF/HTML/CSV/JSON
     utils/         # gitAnalyzer, eslintRunner, summaryBuilder
-    server.ts      # Express app + routes + SSE
-    store.ts       # Persistence layer (users / analyses / metrics)
+    server.ts      # Rotas, SSE e middlewares
+    store.ts       # Persistência e agregações
 frontend/
-  src/             # React components (panels) + api.ts
-img/               # Print.PNG (screenshot)
-scripts/           # copy-frontend-build.js (deploy bundling)
+  src/             # Componentes React e api.ts
+img/               # Print da interface
+scripts/           # copy-frontend-build.js
 ```
 
-> Current persistence: MongoDB via Prisma (no migrations). Switching provider is straightforward by editing the schema.
-
-## 🚀 Getting Started Locally
-
-Prerequisite: [Node.js 18+](https://nodejs.org/)
+## 🚀 Como Rodar Localmente
+Pré-requisitos: Node 18+, git, (opcional) instância MongoDB ou Atlas.
 
 ```bash
 git clone https://github.com/Hiidoko/Code-Analyzer.git
 cd Code-Analyzer
 
-# Backend deps
+# Instalar dependências
 npm install --prefix backend
-
-# Frontend deps
 npm install --prefix frontend
 
-# Environment (example)
+# Variáveis de ambiente
 cp backend/.env.example backend/.env
-echo "JWT_SECRET=some-strong-secret" >> backend/.env
+echo "JWT_SECRET=uma-senha-forte" >> backend/.env
 
-# Development (concurrent dev servers)
+# Desenvolvimento (frontend + backend)
 npm run dev
 
-# Production (single service: backend serves built frontend)
+# Produção (single service: backend serve build do frontend)
 npm run build
 npm start
 ```
 
 Dev: Backend http://localhost:4000 • Frontend http://localhost:5173
 
-## 🔗 Core Endpoints
+### Variáveis Principais
+| Nome | Descrição |
+| ---- | --------- |
+| `DATABASE_URL` | Conexão Prisma (Mongo/Postgres/etc.) |
+| `JWT_SECRET` | Assinatura de tokens |
+| `BCRYPT_ROUNDS` | Custo do hash (default 12) |
+| `DISABLE_DEFAULT_DEMO` | Impede criação de usuário demo |
+| `DISABLE_DEFAULT_ADMIN` | Impede admin padrão |
+| `RATE_LIMIT_*` | Ajustes de limites (janela, máximo) |
+| `CORS_ORIGINS` | Lista de origens permitidas (se vazio libera em dev) |
 
-| Method | Route | Description |
-| ------ | ----- | ----------- |
-| POST | `/api/auth/register` | Create user |
-| POST | `/api/auth/login` | Obtain JWT token |
-| POST | `/api/auth/demo` | Demo user session (if enabled) |
-| POST | `/api/analyze` | Analyze single code snippet |
-| POST | `/api/report/pdf` | PDF export |
-| POST | `/api/report/html` | HTML export |
-| POST | `/api/report/json` | JSON export |
-| POST | `/api/report/csv` | CSV export |
-| GET | `/api/history` | List user analyses |
-| GET | `/api/history/:id` | Fetch specific analysis |
-| GET | `/api/metrics?period=7d&fileType=js` | Aggregated metrics |
-| POST | `/api/git/analyze` | One-shot repo analysis |
-| GET | `/api/git/analyze/stream` | Streaming repo analysis (SSE) |
-| POST | `/api/git/analyze/cancel` | Cancel active streaming job |
-| GET | `/health` | Health probe |
+## 🔗 Endpoints Principais
+| Método | Rota | Descrição |
+| ------ | ----- | --------- |
+| POST | `/api/auth/register` | Cria usuário |
+| POST | `/api/auth/login` | Gera JWT |
+| POST | `/api/auth/demo` | Sessão demo (se habilitado) |
+| POST | `/api/analyze` | Analisa código isolado |
+| POST | `/api/report/pdf|html|json|csv` | Exporta relatório |
+| GET | `/api/history` | Lista análises do usuário |
+| GET | `/api/history/:id` | Detalhe de análise |
+| GET | `/api/metrics` | Métricas agregadas (query: `period`, `fileType`) |
+| POST | `/api/git/analyze` | Análise rápida de repo (sem streaming) |
+| GET | `/api/git/analyze/stream` | Streaming SSE do repo |
+| POST | `/api/git/analyze/cancel` | Cancela processo ativo |
+| GET | `/health` | Health check |
 
-Sample analyze request:
-
+Exemplo (request de análise):
 ```json
 {
-  "code": "function demo(){return 1}",
-  "fileType": "js",
-  "fileName": "demo.js"
+  "code": "def soma(a,b):\n    return a+b",
+  "fileType": "py",
+  "fileName": "soma.py"
 }
 ```
 
-Typical analyze response (simplified):
-
+Resposta (simplificada):
 ```json
 {
-  "fileType": "js",
-  "result": { "lines": 12, "functions": 1, "eslintProblems": [] },
+  "fileType": "py",
+  "result": { "lines": 2, "functions": 1 },
   "summary": {
-    "generatedAt": "2025-10-06T10:00:00.000Z",
-    "issuesCount": 2,
-    "sections": [
-      { "id": "js-basic", "title": "JS Heuristics", "severity": "info", "items": ["1 function detected"] }
-    ]
+    "generatedAt": "2025-10-06T12:00:00.000Z",
+    "issuesCount": 0,
+    "sections": [ { "id": "py-basic", "title": "Python Básico", "severity": "info", "items": ["1 função detectada"] } ]
   }
 }
 ```
 
-## 🤖 Chatbot Integration
+## 🔐 Segurança (Atual)
+- JWT (expiração 12h)
+- Hash de senha com bcrypt
+- Rate limiting para auth e API geral
+- CORS configurável
+> Recomendado adicionar: MFA, logs estruturados, auditoria, rotação de chave e RBAC granular antes de produção real.
 
-Not applicable here. In this context, the analogous interactive flow is the Git repository streaming analysis:
-- Client opens EventSource to `/api/git/analyze/stream`.
-- Backend emits `meta` (id) then `progress` per processed file.
-- On completion emits `done` with aggregated report or `cancelled` / `error`.
-- Client can POST to `/api/git/analyze/cancel` with the `reqId` to abort.
+## 📤 Formatos de Exportação
+| Formato | Uso |
+| ------- | --- |
+| PDF | Compartilhar snapshot legível |
+| HTML | Visualização rica offline |
+| CSV | Planilhas / BI simples |
+| JSON | Integrações / pipelines |
 
-## 🧠 Automatic Consultant Assignment
+## 🧪 Testes & Qualidade
+| Área | Status |
+| ---- | ------ |
+| Autenticação | Coberta por testes de integração |
+| Analyzers | Cobertura parcial de heurísticas | 
+| Git (stream) | Cobertura unit básica (expandir) |
+| Exportações | Testes parciais (HTML/JSON) |
 
-Replaced conceptually by the summary normalization pipeline:
-1. Analyzer chosen based on `fileType`.
-2. Raw metrics + heuristic findings collected.
-3. (JavaScript only) ESLint runs and merges issues.
-4. Sections built (id, title, severity, items) → unified shape.
-5. Optional persistence + export.
-
-## ♿ Accessibility & UX
-
-Initial focus on a clean, panel-based layout. Accessibility improvements are incremental.
-
-### Key Decisions
-- Clear separation of panels (Git / Result / Metrics / History / Auth).
-- Minimalistic form inputs with predictable labels.
-- Streaming status uses plain text updates to remain screen-reader friendly.
-
-### Keyboard Interactions
-| Component | Keys | Result |
-| --------- | ---- | ------ |
-| Forms | Enter | Submit form |
-| Panels | Tab / Shift+Tab | Navigate interactive elements |
-| Streaming View | (Planned) Esc | Future cancellation shortcut |
-
-### ARIA / Semantics Used
-| Feature | Purpose |
-| ------- | ------- |
-| `role="status"` (planned) | Non-intrusive live streaming feedback |
-| Landmark regions | Aid navigation (future enhancement) |
-
-### Focus Management
-- Auth success returns focus to main interaction panel.
-- Stream completion triggers result panel display.
-
-### Accessibility Backlog
-- Add focus outlines & skip link.
-- Add live region for streaming progress.
-- Dark/high-contrast mode.
-- Automated a11y audits (axe / pa11y) in CI.
-
-> Goal: keep interface lightweight while remaining extensible for future accessibility passes.
-
-## 🔄 Future Enhancements
-- Deeper Python/security linters (flake8/pylint/bandit integration)
-- Incremental repo cache + diff-based re-analysis
-- Postgres option with richer aggregations
-- Async queued heavy report generation
-- Trend / regression alerts
-- Role-based access & audit events
-
-## 🧪 Testing & Quality
-
-- Jest + Supertest cover critical API flows and analyzer logic.
-- ESLint enforces code style (TypeScript aware).
-- Build excludes test files in production bundle.
-
-Useful scripts:
-
-```
-npm --prefix backend run test      # run tests
-npm --prefix backend run lint      # lint backend
+Rodar testes:
+```bash
+npm --prefix backend run test
 ```
 
-Current coverage: authentication, analyzer heuristics, basic git logic (unit-level), reporting utilities (selected paths).
+## �️ Roadmap
+- Lints de segurança (bandit, semgrep) e Python avançado
+- Postgres com agregações (queries analíticas)
+- Cache incremental de repositórios + diff re-run
+- Geração assíncrona de relatórios pesados
+- Alertas de regressão de métricas
+- Logger estruturado (pino) + correlação
+- Testes E2E (Playwright) para fluxo streaming completo
 
-### Technical Backlog
-- Add end-to-end tests (Playwright) for full Git streaming flow.
-- Performance profiling of large repositories.
-- Add structured logger (pino) + correlation ids.
+## FAQ
+**Posso adicionar outra linguagem?** Criar novo arquivo em `analyzers/` e registrar no índice.  
+**Por que heurísticas simples?** Objetivo é velocidade e arquitetura demonstrativa.  
+**Posso separar frontend e backend?** Sim: servir `frontend/dist` em CDN e apontar `baseURL` no `api.ts`.  
+**Posso usar em produção?** Só após hardening (segurança, observabilidade, escalabilidade).  
 
 ## ⚠️ Disclaimer
-Heuristic, educational-style platform. Do not rely on it for security or exhaustive static analysis. Add hardening (threat model, audits, logging, MFA, RBAC) before any production context.
+Conteúdo técnico ilustrativo; não garante análise exaustiva nem segurança robusta em produção sem reforços adicionais.
 
-## 📄 License
-Released under the **ISC** License. See `LICENSE` for details.
+## 📄 Licença
+Licença **ISC**. Verifique requisitos antes de uso corporativo.
 
-## 🙌 Credits
-Created by **Caio Marques (Hiidoko)**  
-[LinkedIn](https://linkedin.com/in/hiidoko)
+## 🙌 Créditos
+Criado por **Caio Marques (Hiidoko)**. Se ajudou, deixe uma ⭐.
 
-If this project helped you, drop a ⭐ and feel free to adapt.
+---
+<p align="center">Code Analyzer — métricas, insights e relatórios em um fluxo simples. ⚡</p>
 
 

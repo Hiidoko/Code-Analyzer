@@ -1,6 +1,6 @@
 ## Code Analyzer
 
-> 🌐 Leia em: **Português (BR)** · [English](./README_EN.md)
+> 🌐 Leia em: **English** · [English](./README_EN.md)
 
 > Interface única para inspecionar rapidamente código em múltiplas linguagens, analisar repositórios Git em streaming e gerar relatórios exportáveis.
 

@@ -1,9 +1,9 @@
 import { PrismaClient } from "@prisma/client";
 
-if (process.env.JEST_WORKER_ID !== undefined) {
-  process.env.DATABASE_URL = "file:./test.db";
-} else if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = "file:./dev.db";
+// Em modo de teste ainda podemos isolar uma base (Mongo memory não está configurado; usar variável externa ou skip)
+// Removido fallback SQLite porque agora provider é MongoDB.
+if (!process.env.DATABASE_URL) {
+  console.warn("[db] DATABASE_URL não definida. Defina a URL do MongoDB no .env.");
 }
 
 export const prisma = new PrismaClient();

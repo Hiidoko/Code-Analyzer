@@ -7,10 +7,8 @@
     "dev": "concurrently -n BACKEND,FRONTEND -c magenta,cyan \"npm:dev:back\" \"npm:dev:front\"",
     "dev:back": "npm --prefix backend run dev",
     "dev:front": "npm --prefix frontend run dev",
-    "install:all": "npm --prefix backend install && npm --prefix frontend install",
-    "postinstall": "npm run install:all",
-  "build": "npm --prefix backend run build && npm --prefix frontend run build && node scripts/copy-frontend-build.js",
-  "start": "npm --prefix backend run start:prod",
+    "build": "npm --prefix backend install && npm --prefix backend run build && npm --prefix frontend install && npm --prefix frontend run build && node scripts/copy-frontend-build.js",
+    "start": "npm --prefix backend run start:prod",
     "test": "echo \"No root tests\""
   },
   "repository": {

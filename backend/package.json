@@ -9,12 +9,12 @@
   "scripts": {
     "build": "prisma generate && tsc",
     "start": "node dist/server.js",
-    "start:prod": "prisma migrate deploy && node dist/server.js",
+    "start:prod": "prisma generate && node dist/server.js",
     "dev": "tsx watch src/server.ts",
     "lint": "eslint src --ext .ts",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate deploy",
-    "test": "cross-env DATABASE_URL=\"file:./test.db\" prisma migrate deploy && jest --runInBand --passWithNoTests"
+    "prisma:migrate": "echo 'MongoDB não usa prisma migrate'",
+    "test": "cross-env DATABASE_URL=\"mongodb://localhost:27017/code_analyzer_test\" jest --runInBand --passWithNoTests"
   },
   "dependencies": {
     "@prisma/client": "^5.18.0",

@@ -195,10 +195,14 @@ npm --prefix backend run test
 Conteúdo técnico ilustrativo; não garante análise exaustiva nem segurança robusta em produção sem reforços adicionais.
 
 ## 📄 Licença
-Licença **ISC**. Verifique requisitos antes de uso corporativo.
+Licença **MIT**. Verifique requisitos antes de uso corporativo.
 
 ## 🙌 Créditos
-Criado por **Caio Marques (Hiidoko)**. Se ajudou, deixe uma ⭐.
+Criado por **Caio Marques (Hiidoko)**  \
+[LinkedIn](https://linkedin.com/in/hiidoko)
+
+
+ Se este projeto te ajudou, deixe uma ⭐.
 
 ---
 <p align="center">Code Analyzer — métricas, insights e relatórios em um fluxo simples. ⚡</p>

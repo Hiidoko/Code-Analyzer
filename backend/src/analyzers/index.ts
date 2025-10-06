@@ -6,11 +6,11 @@ import {
   JavaScriptAnalysis,
   GenericAnalysis,
 } from "../types";
-import { analyzePython } from "./pythonAnalyzer";
-import { analyzeHtml } from "./htmlAnalyzer";
-import { analyzeCss } from "./cssAnalyzer";
-import { analyzeJavaScript } from "./javascriptAnalyzer";
-import { analyzeGeneric } from "./genericAnalyzer";
+import { analyzePython } from "./pythonAnalyzer.js";
+import { analyzeHtml } from "./htmlAnalyzer.js";
+import { analyzeCss } from "./cssAnalyzer.js";
+import { analyzeJavaScript } from "./javascriptAnalyzer.js";
+import { analyzeGeneric } from "./genericAnalyzer.js";
 
 export function analyzeByType(fileType: FileType, code: string):
   | { fileType: "py"; result: PythonAnalysis }

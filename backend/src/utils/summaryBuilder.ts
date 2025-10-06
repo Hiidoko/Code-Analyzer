@@ -6,7 +6,7 @@ import {
   PythonAnalysis,
   ReportSection,
   GenericAnalysis,
-} from "../types";
+} from "../types.js";
 
 function buildPythonSections(result: PythonAnalysis): ReportSection[] {
   const sections: ReportSection[] = [];

@@ -1,4 +1,4 @@
-import { HtmlAnalysis } from "../types";
+import { HtmlAnalysis } from "../types.js";
 
 const VOID_ELEMENTS = new Set([
   "area",

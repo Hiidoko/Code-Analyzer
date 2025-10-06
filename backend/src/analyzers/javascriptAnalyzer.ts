@@ -1,4 +1,4 @@
-import { JavaScriptAnalysis } from "../types";
+import { JavaScriptAnalysis } from "../types.js";
 
 const IDENTIFIER_REGEX = /\b([A-Za-z_][\w]*)\b/g;
 

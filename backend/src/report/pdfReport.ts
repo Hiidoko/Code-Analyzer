@@ -1,7 +1,7 @@
 import PDFDocument from "pdfkit";
 import type PDFKit from "pdfkit";
 import { Buffer } from "node:buffer";
-import { AnalyzeSummary, FileType } from "../types";
+import { AnalyzeSummary, FileType } from "../types.js";
 
 export interface PdfReportOptions {
   fileType: FileType;

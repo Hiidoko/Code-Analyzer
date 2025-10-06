@@ -1,4 +1,4 @@
-import { GenericAnalysis } from "../types";
+import { GenericAnalysis } from "../types.js";
 
 // Implementação simplificada para linguagens ainda não suportadas com regras específicas.
 // Faz uma contagem básica de linhas, funções (heurística simples) e comentários.

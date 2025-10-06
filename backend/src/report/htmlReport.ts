@@ -1,4 +1,4 @@
-import { AnalyzeSummary, FileType } from "../types";
+import { AnalyzeSummary, FileType } from "../types.js";
 
 export interface HtmlReportOptions {
   fileType: FileType;

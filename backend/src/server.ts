@@ -2,11 +2,12 @@ import dotenv from "dotenv";
 import cors from "cors";
 import express, { Request, Response, NextFunction } from "express";
 import rateLimit from "express-rate-limit";
-import { analyzeByType } from "./analyzers";
-import { runEslintOnCode } from "./utils/eslintRunner";
-import { analyzeGitRepository, analyzeGitRepositoryWithProgress } from "./utils/gitAnalyzer";
-import { buildSections } from "./utils/summaryBuilder";
-import { createPdfReport, createHtmlReport } from "./report";
+// Imports padrão (sem extensão) usando resolução Node clássica
+import { analyzeByType } from "./analyzers/index.js";
+import { runEslintOnCode } from "./utils/eslintRunner.js";
+import { analyzeGitRepository, analyzeGitRepositoryWithProgress } from "./utils/gitAnalyzer.js";
+import { buildSections } from "./utils/summaryBuilder.js";
+import { createPdfReport, createHtmlReport } from "./report/index.js";
 import {
   AnalyzePayload,
   AnalyzeResponse,
@@ -32,14 +33,22 @@ import {
   cloneSummary,
   ensureDemoUser,
   ensureDefaultAdmin,
-} from "./store";
+} from "./store.js";
 import * as crypto from "crypto";
 
 dotenv.config();
 
 const PORT = Number(process.env.PORT ?? 4000);
+const isProduction = process.env.NODE_ENV === 'production';
 if (!process.env.JWT_SECRET) {
-  console.warn("[security] JWT_SECRET não definido; gerando um segredo temporário. Configure JWT_SECRET para sessões persistentes.");
+  if (isProduction) {
+    // Em produção não permitimos segredo volátil.
+    // Interrompemos o processo para evitar sessões inválidas após restart.
+    console.error('[security] JWT_SECRET ausente em produção. Defina uma variável de ambiente forte. Abortando inicialização.');
+    process.exit(1);
+  } else {
+    console.warn("[security] JWT_SECRET não definido; gerando um segredo temporário (apenas desenvolvimento). Configure JWT_SECRET para sessões persistentes.");
+  }
 }
 const JWT_SECRET = process.env.JWT_SECRET ?? crypto.randomBytes(32).toString("hex");
 
@@ -59,10 +68,35 @@ const authLimiter = rateLimit({
 });
 
 export const app = express();
-app.use(cors());
+// CORS configurável: se CORS_ORIGINS for definido (lista separada por vírgula), restringe; caso contrário libera (dev).
+const corsOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map(o => o.trim())
+  .filter(Boolean);
+app.use(cors({
+  origin: corsOrigins.length ? corsOrigins : true,
+}));
 app.use(express.json({ limit: "2mb" }));
 app.use("/api/auth", authLimiter);
 app.use("/api", apiLimiter);
+
+// Servir build do frontend (single-service deploy)
+import { join } from 'path';
+import { existsSync } from 'fs';
+const staticDir = join(process.cwd(), 'public');
+if (existsSync(staticDir)) {
+  app.use(express.static(staticDir));
+  // Fallback SPA para rotas desconhecidas que não começem por /api ou /health
+  app.use((req, res, next) => {
+    if (req.method === 'GET' && !req.path.startsWith('/api') && req.path !== '/health') {
+      const indexHtml = join(staticDir, 'index.html');
+      if (existsSync(indexHtml)) {
+        return res.sendFile(indexHtml);
+      }
+    }
+    return next();
+  });
+}
 
 void (async () => {
   try {

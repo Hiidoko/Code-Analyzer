@@ -1,5 +1,5 @@
-import { AnalysisHistoryEntry, AnalyzeSummary, FileType, MetricsFilters, MetricsOverview, MetricsPeriod, User } from "./types";
-import { prisma } from "./db";
+import { AnalysisHistoryEntry, AnalyzeSummary, FileType, MetricsFilters, MetricsOverview, MetricsPeriod, User } from "./types.js";
+import { prisma } from "./db.js";
 import bcrypt from "bcryptjs";
 
 const BCRYPT_ROUNDS = Number(process.env.BCRYPT_ROUNDS ?? 12);

@@ -2,9 +2,9 @@ import simpleGit from 'simple-git';
 import { mkdtempSync, rmSync, readdirSync, statSync, readFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join, extname } from 'path';
-import { analyzeByType } from '../analyzers';
-import { buildSections } from './summaryBuilder';
-import { FileType, GitRepositoryAnalysis, GitFileAnalysis } from '../types';
+import { analyzeByType } from '../analyzers/index.js';
+import { buildSections } from './summaryBuilder.js';
+import { FileType, GitRepositoryAnalysis, GitFileAnalysis } from '../types.js';
 
 const EXT_MAP: Record<string, FileType> = {
   '.py': 'py',

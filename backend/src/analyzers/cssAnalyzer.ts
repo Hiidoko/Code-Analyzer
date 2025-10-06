@@ -1,4 +1,4 @@
-import { CssAnalysis } from "../types";
+import { CssAnalysis } from "../types.js";
 
 const KNOWN_PROPERTIES = new Set([
   "color",

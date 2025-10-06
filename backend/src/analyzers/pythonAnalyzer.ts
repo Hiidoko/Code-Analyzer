@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { PythonAnalysis } from "../types";
+import { PythonAnalysis } from "../types.js";
 
 const PYTHON_KEYWORDS = new Set([
   "False",

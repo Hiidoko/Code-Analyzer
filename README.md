@@ -72,210 +72,205 @@ Code-Analyzer/
 │  └─ ...              # configs (tsconfig, jest, .env.example)
 ├─ frontend/
 │  └─ src/
-│     ├─ components/   # Painéis (Auth, Git, Métricas, Histórico, Resultado)
-│     ├─ api.ts        # Axios com injeção de token
-│     ├─ App.tsx       # Shell e roteamento interno
-│     └─ styles.css    # Tema claro/escuro e layout
-└─ package.json        # Scripts combinados com concurrently
+<p align="center">
+  <img src="https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white" />
+  <img src="https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white" />
+  <img src="https://img.shields.io/badge/Express-4-000?logo=express&logoColor=white" />
+  <img src="https://img.shields.io/badge/React-18-149ECA?logo=react&logoColor=white" />
+  <img src="https://img.shields.io/badge/Vite-5-646CFF?logo=vite&logoColor=white" />
+  <img src="https://img.shields.io/badge/Prisma-ORM-0C344B?logo=prisma&logoColor=white" />
+  <img src="https://img.shields.io/badge/MongoDB-optional-47A248?logo=mongodb&logoColor=white" />
+  <img src="https://img.shields.io/badge/SSE-streaming-FF6B6B" />
+</p>
+
+# Code Analyzer
+
+> Multi‑language code insights + repo scan + reports — rápida visualização de questões estruturais e métricas básicas.
+
+**Live demo:** https://code-analyzer-t04x.onrender.com  
+**Screenshot:**
+
+![Code Analyzer UI](./img/Print.PNG)
+
+> Projeto em evolução (protótipo). Pode conter funcionalidades incompletas / heurísticas simplificadas.
+
+---
+
+## 🔎 Visão Geral
+O Code Analyzer reúne em uma mesma interface: análise heurística de arquivos individuais, exportação de relatórios, histórico por usuário, métricas agregadas e análise de repositórios Git com progresso em tempo real.
+
+**Objetivo principal:** demonstrar arquitetura full‑stack modular e extensível para cenários de inspeção leve de código (sem substituir ferramentas profissionais).
+
+### Principais Recursos
+- Suporte a múltiplas linguagens: Python, JavaScript, HTML, CSS (genérico para Ruby / PHP / Go)
+- Relatórios exportáveis (PDF, HTML, CSV, JSON)
+- Dashboard de métricas filtráveis (período / linguagem)
+- Histórico persistido por usuário autenticado
+- Autenticação JWT + bcrypt + rate limiting
+- Análise de repositório Git via clonagem rasa + concorrência + SSE (progresso, cancelamento)
+- Integração ESLint embutida para arquivos JS
+- Arquitetura pronta para novos “analyzers”
+
+---
+
+## 🧩 Arquitetura
+| Camada | Descrição |
+|--------|-----------|
+| Frontend (React + Vite) | SPA consumindo API REST + EventSource para streaming |
+| Backend (Express + TS) | Endpoints, SSE, autenticação, geração de relatórios |
+| Persistência (Prisma) | Modelo simples (User / Analysis) hoje usando MongoDB | 
+| Analyzers | Heurísticas isoladas + enriquecimento de seções |
+| Relatórios | PDFKit + templates HTML / CSV / JSON |
+
+### Fluxo de Análise
+1. Usuário envia código (ou URL de repositório).  
+2. Backend detecta tipo e executa heurísticas (e ESLint se JS).  
+3. Resultado é compactado em “sections” (issues, sugestões, estatísticas).  
+4. Persistência opcional (se autenticado).  
+5. Exportação imediata em múltiplos formatos.
+
+### Streaming Git
+Eventos SSE: `meta` → `progress` (por arquivo) → `done` ou `cancelled`/`error`.
+
+---
+
+## � Estrutura (Resumo)
+```
+backend/
+  prisma/            # schema Prisma
+  src/
+    analyzers/       # Heurísticas por linguagem
+    report/          # Geração de PDF/HTML/CSV/JSON
+    utils/           # gitAnalyzer, eslintRunner, summaryBuilder
+    server.ts        # Rotas + SSE + middlewares
+    store.ts         # Persistência / agregações
+frontend/
+  src/               # Componentes React + painéis
+scripts/             # copy-frontend-build.js
+img/                 # Print de interface
 ```
 
 ---
 
-## ⚙️ Configuração e execução
+## 🚀 Iniciando Localmente
+Pré‑requisitos: Node 18+, git (para análise de repositórios), (opcional) MongoDB ou `DATABASE_URL` válido.
 
-### Pré-requisitos
-
-| Ferramenta | Versão recomendada |
-|------------|--------------------|
-| Node.js    | 18 ou superior     |
-| npm        | 9 ou superior      |
-
-### Passo a passo inicial
-
-```powershell
+```bash
 git clone https://github.com/Hiidoko/Code-Analyzer.git
 cd Code-Analyzer
 
-# Instale dependências separadamente
+# Instala dependências
 npm install --prefix backend
 npm install --prefix frontend
 
-# Copie as variáveis de ambiente e ajuste conforme necessário
-Copy-Item backend/.env.example backend/.env
+# Variáveis (exemplo)
+cp backend/.env.example backend/.env
+echo "JWT_SECRET=algo-super-seguro" >> backend/.env
 
-# Opcional: gere cliente Prisma (útil para IDEs)
-npm --prefix backend run prisma:generate
-
-# Aplique as migrações SQLite (gera dev.db se não existir)
-npm --prefix backend run prisma:migrate
-
-# Inicie frontend + backend em paralelo
+# Dev (2 processos)
 npm run dev
+
+# Produção single-service
+npm run build
+npm start
 ```
 
-> O comando `npm run dev` inicia o backend em <http://localhost:4000> e o frontend em <http://localhost:5173>. Ambos usam proxy `/api` para comunicação.
+Backend: http://localhost:4000  –  Frontend: http://localhost:5173
 
-### Execução isolada
+### Variáveis Principais
+| Variável | Função |
+|----------|--------|
+| `DATABASE_URL` | Conexão Prisma (Mongo/SQLite/Postgres conforme provider) |
+| `JWT_SECRET` | Assinatura de tokens |
+| `BCRYPT_ROUNDS` | Custo de hashing |
+| `DISABLE_DEFAULT_DEMO` | Evita criação de usuário demo |
+| `DISABLE_DEFAULT_ADMIN` | Evita admin padrão |
+| `RATE_LIMIT_*` | Parametriza limites |
 
-- **Backend**
-  ```powershell
-  cd backend
-  npm run dev
-  ```
-- **Frontend**
-  ```powershell
-  cd frontend
-  npm run dev
-  ```
+---
 
-### Build de produção
+## 🔗 Endpoints Principais
+| Método | Rota | Uso |
+|--------|------|-----|
+| POST | `/api/auth/register` | Cria usuário |
+| POST | `/api/auth/login` | Retorna JWT |
+| POST | `/api/analyze` | Analisa código único |
+| POST | `/api/report/pdf` (etc) | Exporta relatório |
+| GET | `/api/history` | Lista análises do usuário |
+| GET | `/api/metrics` | Métricas agregadas |
+| POST | `/api/git/analyze` | Análise síncrona de repo |
+| GET | `/api/git/analyze/stream` | SSE de progresso |
+| POST | `/api/git/analyze/cancel` | Cancela execução |
 
-```powershell
-cd backend
-npm run build
-
-cd ../frontend
-npm run build
+Formato simplificado de resposta de análise:
+```json
+{
+  "fileType": "js",
+  "result": { "lines": 120, "functions": 4 },
+  "summary": {
+    "generatedAt": "2025-10-06T10:00:00.000Z",
+    "issuesCount": 5,
+    "sections": [{ "id": "js-eslint", "title": "ESLint", "severity": "warning", "items": ["Linha 10: no-eval"] }]
+  }
+}
 ```
 
-Os artefatos ficam em `backend/dist` e `frontend/dist`. Sirva o frontend com `npm --prefix frontend run preview` ou integre ao backend conforme necessidade.
+---
 
-### Variáveis de ambiente relevantes (`backend/.env`)
-
-| Variável | Descrição | Default |
-|----------|-----------|---------|
-| `DATABASE_URL` | Caminho do banco SQLite (suporta `file:./dev.db`) | `file:./dev.db` |
-| `JWT_SECRET` | Segredo para assinar tokens | gerado aleatoriamente se vazio (não persistente) |
-| `BCRYPT_ROUNDS` | Custo de hashing | `12` |
-| `PORT` | Porta do backend | `4000` |
-| `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX`, `RATE_LIMIT_AUTH_MAX` | Ajustes de rate limiting | `60s / 120 / 20` |
-| `DEFAULT_ADMIN_PASSWORD` | Senha do admin padrão | `admin` |
-| `DISABLE_DEFAULT_ADMIN`, `DISABLE_DEFAULT_DEMO` | Evita criação automática | não definidos |
-
-Para redefinir o banco durante o desenvolvimento utilize `npx prisma migrate reset` (atenção: remove dados).
+## 📤 Formatos de Exportação
+| Formato | Objetivo |
+|---------|----------|
+| PDF | Compartilhamento visual rápido |
+| HTML | Consulta offline rica |
+| CSV | Manipulação em planilhas |
+| JSON | Integração / pipelines |
 
 ---
 
-## 🚦 Fluxo de uso
+## 🔐 Segurança Simplificada
+- JWT expira em 12h
+- Rate limiting básico
+- Hash de senha com bcrypt
+- CORS configurável via `CORS_ORIGINS`
 
-1. Crie uma conta ou use **Entrar como demo** (gera token JWT).
-2. Escolha entre upload / colagem de código e selecione a linguagem.
-3. Aplique a análise para receber sumário estruturado + detalhes específicos.
-4. Exporte relatórios conforme necessidade (PDF/HTML/CSV/JSON).
-5. Consulte o **Histórico** e o **Dashboard** para métricas agregadas.
-6. (Opcional) Analise um repositório Git: acompanhe o progresso em tempo real via SSE e cancele se desejar.
-
----
-
-## 🔗 APIs e integrações
-
-| Endpoint | Método | Descrição |
-|----------|--------|-----------|
-| `/api/auth/register` | POST | Cadastro de usuário com verificação de senha forte |
-| `/api/auth/login` | POST | Login com retorno de token JWT |
-| `/api/auth/demo` | POST | Cria/retorna sessão demo | 
-| `/api/analyze` | POST | Analisa código (py/js/html/css/rb/php/go) e persiste histórico |
-| `/api/report/(pdf|html|csv|json)` | POST | Exporta relatório conforme formato |
-| `/api/history`, `/api/history/:id` | GET | Histórico de análises do usuário |
-| `/api/metrics` | GET | Métricas com filtros `period` (7d/30d/90d/all) e `fileType` |
-| `/api/git/analyze` | POST | Análise síncrona de repositório Git |
-| `/api/git/analyze/stream` | GET (SSE) | Streaming de progresso com eventos `meta`, `progress`, `done`, `cancelled`, `error` |
-| `/api/git/analyze/cancel` | POST | Cancela execução SSE ativa (usa `reqId`) |
-
-### Streaming SSE (frontend)
-
-- Autenticação por query `token` (JWT) + fallback para header `Authorization`.
-- Eventos interpretados pelo `GitPanel.tsx`, com mensagens de progresso, cancelamento e erros.
-- Cancelamento envia `POST /api/git/analyze/cancel` com o `reqId` recebido em `event: meta`.
+> Requer hardening adicional antes de uso corporativo (MFA, auditoria, RBAC avançado etc.).
 
 ---
 
-## 🛡️ Segurança
+## 🧪 Testes
+Backend: Jest + Supertest (rotas críticas, análise). Em build de produção os testes são excluídos do bundle.
 
-- Tokens JWT expiram em 12h e são armazenados em `localStorage` ou `sessionStorage` conforme preferência.
-- Login demo é isolado do admin e reforça ambiente de testes.
-- Rate limiting segmentado (`/api` geral vs `/api/auth`).
-- Hash de senha com bcrypt (configurável via `BCRYPT_ROUNDS`).
-- Rotas protegidas usam middleware que revalida token e usuário no banco.
-- SSE requer autenticação (token em query string) e suporta cancelamento manual/automático.
-
----
-
-## 🧰 Scripts e automações
-
-### Monorepo (raiz)
-
-| Script | Descrição |
-|--------|-----------|
-| `npm run dev` | Sobe backend (4000) + frontend (5173) em paralelo |
-
-### Backend
-
-| Script | Descrição |
-|--------|-----------|
-| `npm run dev` | Watch mode via `tsx` |
-| `npm run build` | Compila TS para `dist/` |
-| `npm start` | Executa build gerada |
-| `npm run lint` | ESLint em `src/` |
-| `npm run prisma:generate` | Gera cliente Prisma |
-| `npm run prisma:migrate` | Aplica migrações (`prisma migrate deploy`) |
-| `npm test` | Executa Jest (aplica migrações em `test.db` automaticamente) |
-
-### Frontend
-
-| Script | Descrição |
-|--------|-----------|
-| `npm run dev` | Vite dev server |
-| `npm run build` | Build de produção |
-| `npm run preview` | Serve build com Vite |
-
----
-
-## ✅ Qualidade e testes
-
-- Jest configurado com `ts-jest` e `supertest` para cobrir rotas críticas (backend).
-- ESLint programático roda dentro da análise JavaScript, garantindo relatórios ricos.
-- Build do frontend validado com Vite (`npm --prefix frontend run build`).
-- Métricas agregadas validadas via `buildMetrics` (inclui filtros e tendência diária).
-
-### Como executar
-
-```powershell
-npm --prefix backend run lint
+```bash
 npm --prefix backend run test
-npm --prefix frontend run build
 ```
 
-Os testes criam um banco `test.db` isolado. Após a execução, o Prisma é desligado automaticamente.
+---
+
+## 🛣️ Futuro (Ideias)
+- Lints mais profundos (Python, segurança)
+- Postgres com agregações avançadas
+- Cache incremental para repositórios grandes
+- Geração assíncrona de relatórios pesados
+- Alertas de tendência / regressão
 
 ---
 
-## 🛣️ Roadmap
-
-- Integração com bancos externos (PostgreSQL) e seeds configuráveis
-- Linter Python dedicado (flake8/pylint) + checagens de segurança (bandit)
-- Export assíncrono com notificações in-app
-- Webhooks / tokens de API para automação CI
-- Painel avançado com gráficos interativos (D3/Recharts) e alertas de regressão
-- Cache incremental para repositórios Git grandes
+## FAQ Rápido
+**Posso adicionar outra linguagem?** Sim – criar novo analyzer e registrar no switch.  
+**Posso separar frontend?** Sim – servir `frontend/dist` como estático e ajustar baseURL.  
+**As heurísticas são 100% confiáveis?** Não – são intencionais simplificações.  
 
 ---
 
-## 🙋 FAQ
+## Licença
+ISC. Revise antes de uso em contextos sensíveis.
 
-| Pergunta | Resposta |
-|----------|----------|
-| Quais credenciais padrão existem? | `admin@example.com` / senha definida em `DEFAULT_ADMIN_PASSWORD` (padrão `admin`) e demo `user@email.com` / `user`. |
-| Posso trocar o banco? | Sim. Ajuste `DATABASE_URL` (ex. `file:../data.db` ou conexões PostgreSQL) e replique migrações. |
-| Como adicionar uma nova linguagem? | Crie um analisador em `backend/src/analyzers`, exporte no `index.ts` e ajuste o frontend para oferecê-la. |
-| O SSE funciona sem HTTPS? | Sim em dev. Para produção habilite HTTPS e avalie CORS/Firewall. |
-| O frontend pode rodar em outro domínio? | Sim, basta configurar CORS no backend (arquivo `server.ts`) e ajustar `baseURL` do Axios. |
+## Créditos
+Criado por **Caio Marques (Hiidoko)**. Se for útil, deixe uma ⭐ e adapte livremente.  
 
 ---
 
-## 🤝 Contribuindo
-
-1. Faça um fork.
+<p align="center">Explorar, aprender e iterar — aproveite o código! ⚡</p>
 2. Crie uma branch (`feat/nome-da-feature`).
 3. Siga commits semânticos (`feat:`, `fix:`, `chore:` ...).
 4. Abra PR descrevendo motivação, passos de teste e screenshots quando aplicável.
@@ -288,6 +283,4 @@ Sugestões, issues e PRs são super bem-vindos! ✨
 
 Este projeto é distribuído sob a licença **ISC**. Consulte o arquivo `LICENSE` (ou `package.json`) para detalhes e verifique requisitos internos antes de uso em produção.
 
----
 
-<p align="center">Feito com ♥ para acelerar análises de código e dar visibilidade ao progresso.</p>
